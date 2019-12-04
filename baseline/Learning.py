@@ -103,8 +103,6 @@ class Learning():
         return batch_pred.cpu()
 
     def process_summary(self):
-        # self.logger.info('{} epoch: \t start searching thresholds....'.format(self.epoch))
-        # selected_score, thr = global_metric_fn(eval_list)
         Acc = self.evaluator.Pixel_Accuracy()
         MIoU = self.evaluator.Mean_Intersection_over_Union()
         FWIoU = self.evaluator.Frequency_Weighted_Intersection_over_Union()
