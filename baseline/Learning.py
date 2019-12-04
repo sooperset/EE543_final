@@ -80,7 +80,6 @@ class Learning():
         batch_imgs = batch_imgs.to(device=self.device, non_blocking=True)
         batch_labels = batch_labels.to(device=self.device, non_blocking=True, dtype=torch.int64)
         batch_pred = model(batch_imgs)
-        batch_pred = F.softmax(batch_pred, dim=1)
         loss = self.loss_fn(batch_pred, batch_labels) / self.accumulation_step
 
         # loss.backward()
@@ -96,7 +95,6 @@ class Learning():
             with torch.no_grad():
                 batch_labels = batch[1].to(dtype=torch.int64)
                 batch_pred = self.batch_valid(model, batch[0])
-                batch_pred = F.softmax(batch_pred, dim=1)[:,1,...]
                 # batch_labels = one_hot_embedding(batch_labels, 2).permute(0,3,1,2)[:,1,...]
                 eval_list.append((batch_pred, batch_labels))
                 score = local_metric_fn(batch_pred, batch_labels)
