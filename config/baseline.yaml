@@ -16,7 +16,7 @@ MODEL:
   CLASS: DeepLab
   ARGS:
       num_classes: 21
-      backbone: resnet
+      backbone: xception
       output_stride: 16
       sync_bn: False
       freeze_bn: False
