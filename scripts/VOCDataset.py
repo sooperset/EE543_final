@@ -3,6 +3,7 @@ import numpy as np
 import os
 from PIL import Image
 from torch.utils.data import Dataset
+from albumentations.pytorch import ToTensor
 
 
 class VOCSegmentation(Dataset):
@@ -57,7 +58,6 @@ class VOCSegmentation(Dataset):
         assert (len(self.images) == len(self.categories))
 
         # Display stats
-        print(self.split)
         print('Number of images in {}: {:d}'.format(split, len(self.images)))
 
     def __len__(self):
@@ -69,17 +69,15 @@ class VOCSegmentation(Dataset):
         for split in self.split:
             if split == "train":
                 augmented = self.transforms(image=_img, mask=_target)
-                return augmented['image'], augmented['mask'].permute(0, -1, 1, 2)
+                return augmented['image'], augmented['mask']
             elif split == 'val':
                 augmented = self.transforms(image=_img, mask=_target)
-                return augmented['image'], augmented['mask'].permute(0, -1, 1, 2)
+                return augmented['image'], augmented['mask']
 
     def _make_img_gt_point_pair(self, index):
         _img = np.array(Image.open(self.images[index]).convert('RGB'))
         _target = np.array(Image.open(self.categories[index]))
-
         _target[_target == 255] = 0
-        _target = np.eye(self.num_classes)[_target]
 
         return _img, _target
 

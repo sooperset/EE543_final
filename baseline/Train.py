@@ -62,15 +62,8 @@ def train_fold(
 
     device = train_config['DEVICE']
 
-    if train_config['MODEL']['ARGS']['activation'] is not None:
-        train_config['MODEL']['ARGS']['activation'] = None
     module = importlib.import_module(train_config['MODEL']['PY'])
     model_function = getattr(module, train_config['MODEL']['CLASS'])
-    model_args = train_config['MODEL']['ARGS']
-    if 'Unet' in train_config['MODEL']['CLASS']:
-        if type(model_args['decoder_channels']) == str:
-            model_args['decoder_channels'] = literal_eval(model_args['decoder_channels'])
-    model_base = model_function(**train_config['MODEL']['ARGS'])
     model = model_function(**train_config['MODEL']['ARGS'])
 
     if len(train_config['DEVICE_LIST']) > 1:
@@ -80,20 +73,8 @@ def train_fold(
 
     pretrained_model_path = best_checkpoint_folder / f'{calculation_name}.pth'
     if pretrained_model_path.is_file():
-        try:  # single gpu <- single gpu , multiple gpu <- multiple gpu
-            state_dict = torch.load(pretrained_model_path, map_location=lambda storage, loc: storage)
-            model.load_state_dict(state_dict)
-        except SingleFromMultipleLoadError:  # single gpu <- multiple gpu
-            model = WrappedModel(model)  # to load a model which is saved from parallel learning
-            state_dict = torch.load(pretrained_model_path, map_location=lambda storage, loc: storage)
-            model.load_state_dict(state_dict)
-        except MultipleFromSingleLoadError:  # multiple gpu <- single gpu
-            model = model_base
-            state_dict = torch.load(pretrained_model_path, map_location=lambda storage, loc: storage)
-            model.load_state_dict(state_dict)
-            model.cuda()
-            model = convert_syncbn_model(model)
-            model = DistributedDataParallel(model, delay_allreduce=True)
+        state_dict = torch.load(pretrained_model_path, map_location=lambda storage, loc: storage)
+        model.load_state_dict(state_dict)
 
         if distrib_config['LOCAL_RANK'] == 0:
             fold_logger.info('load model from {}'.format(pretrained_model_path))
@@ -149,7 +130,6 @@ if __name__ == '__main__':
 
     root_dir = Path(train_config['DIRECTORY']['ROOT_DIRECTORY'])
     data_dir = Path(train_config['DIRECTORY']['DATA_DIRECTORY'])
-    mask_dir = Path(train_config['DIRECTORY']['MASK_DIRECTORY'])
     log_dir = root_dir / train_config['DIRECTORY']['LOGGER_DIRECTORY']
     log_dir.mkdir(exist_ok=True, parents=True)
 
@@ -196,7 +176,7 @@ if __name__ == '__main__':
             main_logger.info('Start training of {} fold....'.format(fold_id))
 
         train_dataset = VOCSegmentation(data_dir, split='train', transforms=train_transform)
-        valid_dataset = VOCSegmentation(data_dir, split='valid', transforms=valid_transform)
+        valid_dataset = VOCSegmentation(data_dir, split='val', transforms=valid_transform)
 
         if len(train_config['DEVICE_LIST']) > 1:
             if train_config['USE_SAMPLER']:

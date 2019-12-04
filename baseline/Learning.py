@@ -103,6 +103,7 @@ class Learning():
         return batch_pred.cpu()
 
     def process_summary(self):
+        pdb.set_trace()
         Acc = self.evaluator.Pixel_Accuracy()
         MIoU = self.evaluator.Mean_Intersection_over_Union()
         FWIoU = self.evaluator.Frequency_Weighted_Intersection_over_Union()

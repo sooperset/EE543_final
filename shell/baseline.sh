@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-sudo docker --gpus '"device=0"' run \
+sudo NV_GPU=3 nvidia-docker run \
  -it \
  --rm \
  -v "/home/hslee1/ee543:/tmp/ee543" \

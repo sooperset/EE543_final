@@ -4,6 +4,6 @@
     "transforms": [
       {"__class_fullname__": "albumentations.augmentations.transforms.Resize", "always_apply": false, "height": 480, "width": 384, "interpolation": 1, "p": 1.0},
       {"__class_fullname__": "albumentations.augmentations.transforms.Normalize", "always_apply": false, "p": 1.0, "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225], "max_pixel_value": 255.0},
-      {"__class_fullname__": "albumentations.pytorch.transforms.ToTensor"}
+      {"__class_fullname__": "albumentations.pytorch.transforms.ToTensorV2"}
     ],
     "bbox_params": {}, "keypoint_params": {}, "additional_targets": {}}}
