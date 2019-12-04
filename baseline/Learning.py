@@ -94,8 +94,12 @@ class Learning():
         for idx, batch in enumerate(tqdm_loader):
             with torch.no_grad():
                 batch_labels = batch[1].to(dtype=torch.long)
+                n, h, w = batch_labels.size()
+                batch_one_hot_labels = torch.zeros((n, 21, h, w), dtype=torch.long)
+                for i in range(batch_labels.size(0)):
+                    batch_one_hot_labels[i] = torch.nn.functional.one_hot(batch_labels[i], 21).permute(-1,0,1)
                 batch_pred = self.batch_valid(model, batch[0])
-                self.evaluator.add_batch(batch_labels.numpy(), batch_pred.numpy())
+                self.evaluator.add_batch(batch_one_hot_labels.numpy(), (batch_pred > 0.5).numpy())
 
     def batch_valid(self, model, batch_imgs):
         batch_imgs = batch_imgs.to(device=self.device, non_blocking=True)
@@ -103,7 +107,6 @@ class Learning():
         return batch_pred.cpu()
 
     def process_summary(self):
-        pdb.set_trace()
         Acc = self.evaluator.Pixel_Accuracy()
         MIoU = self.evaluator.Mean_Intersection_over_Union()
         FWIoU = self.evaluator.Frequency_Weighted_Intersection_over_Union()

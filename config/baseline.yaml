@@ -28,10 +28,6 @@ FOLD:
 # preprocessing
 USE_SAMPLER: False
 
-TRANSFORMS:
-  TRAIN: transforms/train_transforms.json
-  VALID: transforms/valid_transforms.json
-
 # training
 CRITERION:
   NAME: CrossEntropyLoss
@@ -54,7 +50,7 @@ SCHEDULER:
     min_lr: 0.0000001
 
 
-BATCH_SIZE: 10
+BATCH_SIZE: 20
 ACCUMULATION_STEP: 2
 EPOCHS: 200
 EARLY_STOPPING: 60

@@ -161,9 +161,6 @@ if __name__ == '__main__':
 
     pipeline_name = train_config['PIPELINE_NAME']
 
-    train_transform = albu.load(train_config['TRANSFORMS']['TRAIN'])
-    valid_transform = albu.load(train_config['TRANSFORMS']['VALID'])
-
     num_workers = train_config['WORKERS']
     batch_size = train_config['BATCH_SIZE']
     n_folds = train_config['FOLD']['NUMBER']
@@ -175,8 +172,8 @@ if __name__ == '__main__':
         if distrib_config['LOCAL_RANK'] == 0:
             main_logger.info('Start training of {} fold....'.format(fold_id))
 
-        train_dataset = VOCSegmentation(data_dir, split='train', transforms=train_transform)
-        valid_dataset = VOCSegmentation(data_dir, split='val', transforms=valid_transform)
+        train_dataset = VOCSegmentation(data_dir, split='train')
+        valid_dataset = VOCSegmentation(data_dir, split='val')
 
         if len(train_config['DEVICE_LIST']) > 1:
             if train_config['USE_SAMPLER']:
