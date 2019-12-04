@@ -4,8 +4,9 @@ import sys
 from pathlib import Path
 from scripts.utils import load_yaml, seed_everything, init_logger, WrappedModel, DistributedWeightedRandomSampler
 from scripts.tb_helper import init_tb_logger
-from scripts.metric import apply_deep_thresholds, search_deep_thresholds
+# from scripts.metric import apply_deep_thresholds, search_deep_thresholds
 from scripts.VOCDataset import VOCSegmentation
+from scripts.metric import Evaluator
 from scripts.seg_loss import get_loss
 from baseline.Learning import Learning
 import numpy as np
@@ -38,32 +39,9 @@ def argparser():
     return parser.parse_args()
 
 
-def init_eval_fns(train_config):
-    search_pairs = train_config['EVALUATION']['SEARCH_PAIRS']
-    n_search_workers = train_config.get('WORKERS', 1)
-    # n_search_workers = -2
-
-    thrs_list = [thr for thr in search_pairs]
-
-    main_thr = 0.5
-    print('Evaluation thresholds: ', main_thr)
-    local_metric_fn = functools.partial(
-        apply_deep_thresholds,
-        threshold=0.5
-    )
-
-    global_metric_fn = functools.partial(
-        search_deep_thresholds,
-        thrs_list=thrs_list,
-        n_search_workers=n_search_workers
-    )
-    return local_metric_fn, global_metric_fn
-
-
 def train_fold(
     train_config, distrib_config, pipeline_name, log_dir, fold_id,
-    train_dataloader, valid_dataloader,
-    local_metric_fn, global_metric_fn):
+    train_dataloader, valid_dataloader, evaluator):
 
     if distrib_config['LOCAL_RANK'] == 0:
         fold_logger = init_logger(log_dir, 'train_fold_{}.log'.format(fold_id))
@@ -146,6 +124,7 @@ def train_fold(
         distrib_config,
         optimizer,
         loss_fn,
+        evaluator,
         device,
         n_epoches,
         scheduler,
@@ -157,7 +136,7 @@ def train_fold(
         checkpoints_history_folder,
         checkpoints_topk,
         calculation_name
-    ).run_train(model, train_dataloader, valid_dataloader, local_metric_fn, global_metric_fn)
+    ).run_train(model, train_dataloader, valid_dataloader)
 
     fold_logger.info(f'Best Epoch : {best_epoch}, Best Score : {best_score}')
 
@@ -210,7 +189,7 @@ if __name__ == '__main__':
     n_folds = train_config['FOLD']['NUMBER']
 
     usefolds = map(str, train_config['FOLD']['USEFOLDS'])
-    local_metric_fn, global_metric_fn = init_eval_fns(train_config)
+    evaluator = Evaluator(num_class=train_config['EVALUATION']['NUM_CLASSES'])
 
     for fold_id in usefolds:
         if distrib_config['LOCAL_RANK'] == 0:
@@ -249,6 +228,5 @@ if __name__ == '__main__':
 
         train_fold(
             train_config, distrib_config, pipeline_name, log_dir,
-            fold_id, train_loader, valid_loader,
-            local_metric_fn, global_metric_fn
+            fold_id, train_loader, valid_loader, evaluator
         )
