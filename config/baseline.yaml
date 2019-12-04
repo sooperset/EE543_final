@@ -3,7 +3,7 @@ PIPELINE_NAME: DeepLab
 
 DIRECTORY:
   ROOT_DIRECTORY: /workspace/logs/ee543/baseline
-  DATA_DIRECTORY: /workspace/dataset/
+  DATA_DIRECTORY: /workspace/dataset/VOCdevkit/VOC2012/
   LOGGER_DIRECTORY: log/baseline
 
 SEED: 2019
@@ -12,16 +12,14 @@ DEVICE_LIST: [0]
 WORKERS: 10
 
 MODEL:
-  PY: segmentation_models_pytorch.unet
-  CLASS: Unet
+  PY: modeling.deeplab
+  CLASS: DeepLab
   ARGS:
-      encoder_name: resnet50
-      encoder_weights: imagenet
-      decoder_use_batchnorm: True
-      decoder_channels: (256, 128, 64, 32, 16)
-      classes: 2
-      activation: None
-      center: True
+      num_classes: 21
+      backbone: xception
+      output_stride: 16
+      sync_bn: False
+      freeze_bn: False
 
 FOLD:
   NUMBER: 1
@@ -31,14 +29,14 @@ FOLD:
 USE_SAMPLER: False
 
 TRANSFORMS:
-  TRAIN: transforms/train_simple_transforms.json
+  TRAIN: transforms/train_transforms.json
   VALID: transforms/valid_transforms.json
 
 # training
 CRITERION:
   NAME: CrossEntropyLoss
-  ARGS:
-    weight: [1, 10]
+#  ARGS:
+#    weight: [1, 10]
 
 OPTIMIZER:
   CLASS: Adam

@@ -5,13 +5,13 @@ from pathlib import Path
 from scripts.utils import load_yaml, seed_everything, init_logger, WrappedModel, DistributedWeightedRandomSampler
 from scripts.tb_helper import init_tb_logger
 from scripts.metric import apply_deep_thresholds, search_deep_thresholds
+from scripts.VOCDataset import VOCSegmentation
 from scripts.seg_loss import get_loss
 from baseline.Learning import Learning
 import numpy as np
 from torch.utils.data import DataLoader, WeightedRandomSampler
 import torch
 import torch.nn as nn
-from torchvision.datasets import VOCSegmentation
 import albumentations as albu
 import functools
 import importlib
@@ -19,6 +19,7 @@ from ast import literal_eval
 from apex.parallel import DistributedDataParallel, convert_syncbn_model
 
 sys.path.append('/workspace/lib/segmentation_models.pytorch')
+sys.path.append('/workspace/lib/pytorch-deeplab-xception')
 sys.path.append('/workspace/lib/utils')
 import radam
 
@@ -204,8 +205,6 @@ if __name__ == '__main__':
     train_transform = albu.load(train_config['TRANSFORMS']['TRAIN'])
     valid_transform = albu.load(train_config['TRANSFORMS']['VALID'])
 
-    folds_distr_path = Path(train_config['FOLD']['FILE'])
-
     num_workers = train_config['WORKERS']
     batch_size = train_config['BATCH_SIZE']
     n_folds = train_config['FOLD']['NUMBER']
@@ -217,8 +216,8 @@ if __name__ == '__main__':
         if distrib_config['LOCAL_RANK'] == 0:
             main_logger.info('Start training of {} fold....'.format(fold_id))
 
-        train_dataset = CellDataset(data_dir, mask_dir, folds_distr_path, n_folds, fold_id, train_transform, 'train')
-        valid_dataset = CellDataset(data_dir, mask_dir, folds_distr_path, n_folds, fold_id, valid_transform, 'valid')
+        train_dataset = VOCSegmentation(data_dir, split='train', transforms=train_transform)
+        valid_dataset = VOCSegmentation(data_dir, split='valid', transforms=valid_transform)
 
         if len(train_config['DEVICE_LIST']) > 1:
             if train_config['USE_SAMPLER']:
