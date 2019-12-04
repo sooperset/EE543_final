@@ -37,23 +37,27 @@ CRITERION:
 OPTIMIZER:
   CLASS: Adam
   ARGS:
-    lr: 0.01
+    lr: 0.001
     weight_decay: 0.000005
 
+#SCHEDULER:
+#  CLASS: ReduceLROnPlateau
+#  ARGS:
+#    mode: max
+#    factor: 0.1
+#    patience: 5
+#    threshold: 0.0000001
+#    min_lr: 0.0000001
 SCHEDULER:
-  CLASS: ReduceLROnPlateau
+  CLASS: CosineAnnealingLR
   ARGS:
-    mode: max
-    factor: 0.1
-    patience: 5
-    threshold: 0.0000001
-    min_lr: 0.0000001
-
+    T_max: 8
+    eta_min: 0.0000001
 
 BATCH_SIZE: 12
 ACCUMULATION_STEP: 2
-EPOCHS: 200
-EARLY_STOPPING: 60
+EPOCHS: 3000
+EARLY_STOPPING: 3000
 
 # saving
 CHECKPOINTS:
