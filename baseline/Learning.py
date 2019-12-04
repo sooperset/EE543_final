@@ -51,7 +51,7 @@ class Learning():
         self.score_heap = [(0., Path('nothing'))]
         self.summary_file = Path(self.checkpoints_history_folder, 'summary.csv')
         if self.summary_file.is_file():
-            self.best_score = pd.read_csv(self.summary_file).best_metric.max()
+            self.best_score = pd.read_csv(self.summary_file).MIoU.max()
             if self.distrib_config['LOCAL_RANK'] == 0:
                 logger.info('Pretrained best score is {:.5}'.format(self.best_score))
         else:
