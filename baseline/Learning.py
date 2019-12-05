@@ -108,23 +108,28 @@ class Learning():
 
             tqdm_loader.set_description(f'loss: {current_loss_mean:.4f}')
 
+        return loss
+
     def batch_valid(self, model, batch_imgs):
         batch_imgs = batch_imgs.to(device=self.device, non_blocking=True)
         batch_pred = model(batch_imgs)
         return batch_pred
 
-    def process_summary(self):
+    def process_summary(self, valid_loss):
+        Loss = valid_loss
         Acc = self.evaluator.Pixel_Accuracy()
         MIoU = self.evaluator.Mean_Intersection_over_Union()
         FWIoU = self.evaluator.Frequency_Weighted_Intersection_over_Union()
 
         epoch_summary = pd.DataFrame(
-            data=[[self.epoch, MIoU, Acc, FWIoU]],
-            columns=['epoch', 'MIoU', 'Acc', 'FWIoU']
+            data=[[self.epoch, Loss, MIoU, Acc, FWIoU]],
+            columns=['epoch', 'Loss', 'MIoU', 'Acc', 'FWIoU']
         )
 
         if self.distrib_config['LOCAL_RANK'] == 0:
-            self.logger.info(f'Epoch {self.epoch}: \t MIoU: {MIoU:.6f}, Acc: {Acc:.6f}, FWIoU: {FWIoU:.6f}')
+            self.logger.info(f'Epoch {self.epoch}: \t Loss: {Loss:.6f}, MIoU: {MIoU:.6f},'
+                             f' Acc: {Acc:.6f}, FWIoU: {FWIoU:.6f}')
+            self.tb_logger.add_scalar('Valid/Loss', Loss, self.epoch)
             self.tb_logger.add_scalar('Valid/MIoU', MIoU, self.epoch)
             self.tb_logger.add_scalar('Valid/Acc', Acc, self.epoch)
             self.tb_logger.add_scalar('Valid/FWIoU', FWIoU, self.epoch)
@@ -201,8 +206,8 @@ class Learning():
             if self.distrib_config['LOCAL_RANK'] == 0:
                 self.logger.info(f'Epoch {self.epoch}: \t start validation....')
             model.eval()
-            self.valid_epoch(model, valid_dataloader)
-            selected_score = self.process_summary()
+            valid_loss = self.valid_epoch(model, valid_dataloader)
+            selected_score = self.process_summary(valid_loss)
 
             self.post_processing(selected_score, model)
 
