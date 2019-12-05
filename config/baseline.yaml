@@ -42,8 +42,8 @@ CRITERION:
 OPTIMIZER:
   CLASS: Adam
   ARGS:
-    lr: 0.01
-    weight_decay: 0.000005
+    lr: 0.007
+    weight_decay: 0.0005
 
 #SCHEDULER:
 #  CLASS: ReduceLROnPlateau
@@ -59,8 +59,8 @@ SCHEDULER:
     T_max: 8
     eta_min: 0.0000001
 
-BATCH_SIZE: 12
-ACCUMULATION_STEP: 2
+BATCH_SIZE: 8
+ACCUMULATION_STEP: 1
 EPOCHS: 3000
 EARLY_STOPPING: 3000
 

@@ -81,21 +81,21 @@ class Learning():
         return current_loss_mean
 
     def batch_train(self, model, batch_imgs, batch_labels):
-        batch_imgs = batch_imgs.to(device=self.device, non_blocking=True)
-        batch_labels = batch_labels.to(device=self.device, non_blocking=True, dtype=torch.long)
+        batch_imgs = batch_imgs.to(device=self.device)
+        batch_labels = batch_labels.to(device=self.device)
         batch_pred = model(batch_imgs)
         loss = self.loss_fn(batch_pred, batch_labels) / self.accumulation_step
 
-        # loss.backward()
-        with amp.scale_loss(loss, self.optimizer, loss_id=0) as scaled_loss:
-            scaled_loss.backward()
+        loss.backward()
+        # with amp.scale_loss(loss, self.optimizer, loss_id=0) as scaled_loss:
+        #     scaled_loss.backward()
         return loss
 
     def valid_epoch(self, model, loader):
         tqdm_loader = tqdm(loader)
         current_loss_mean = 0.
         for idx, batch in enumerate(tqdm_loader):
-            image, target = batch['image'], batch['label'].to(device=self.device, non_blocking=True, dtype=torch.long)
+            image, target = batch['image'], batch['label']
             with torch.no_grad():
                 pred = self.batch_valid(model, image)
             loss = self.loss_fn(pred, target)
@@ -111,7 +111,7 @@ class Learning():
         return current_loss_mean
 
     def batch_valid(self, model, batch_imgs):
-        batch_imgs = batch_imgs.to(device=self.device, non_blocking=True)
+        batch_imgs = batch_imgs.to(device=self.device)
         batch_pred = model(batch_imgs)
         return batch_pred
 
@@ -192,7 +192,7 @@ class Learning():
 
     def run_train(self, model, train_dataloader, valid_dataloader):
         model.to(self.device)
-        model, self.optimizer = amp.initialize(model, self.optimizer, opt_level='O1')
+        # model, self.optimizer = amp.initialize(model, self.optimizer, opt_level='O1')
         for self.epoch in range(self.n_epoches):
             if self.distrib_config['LOCAL_RANK'] == 0:
                 self.logger.info(f'Epoch {self.epoch}: \t start training....')
