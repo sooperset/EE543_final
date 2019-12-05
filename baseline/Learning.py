@@ -69,7 +69,7 @@ class Learning():
             if (idx + 1) % self.accumulation_step == 0:
                 self.optimizer.zero_grad()
 
-            image, target = batch['image'], batch['label']
+            image, target = batch['image'], batch['label'].cpu()
             loss = self.batch_train(model, image, target)
             current_loss_mean = (current_loss_mean * idx + loss.item()) / (idx + 1)
 
