@@ -87,7 +87,6 @@ class Learning():
         loss = self.loss_fn(batch_pred, batch_labels) / self.accumulation_step
 
         # loss.backward()
-        pdb.set_trace()
         with amp.scale_loss(loss, self.optimizer, loss_id=0) as scaled_loss:
             scaled_loss.backward()
         return loss
@@ -96,7 +95,7 @@ class Learning():
         tqdm_loader = tqdm(loader)
         current_loss_mean = 0.
         for idx, batch in enumerate(tqdm_loader):
-            image, target = batch['image'], batch['label']
+            image, target = batch['image'], batch['label'].to(device=self.device, non_blocking=True, dtype=torch.long)
             with torch.no_grad():
                 pred = self.batch_valid(model, image)
             loss = self.loss_fn(pred, target)
@@ -109,7 +108,7 @@ class Learning():
 
             tqdm_loader.set_description(f'loss: {current_loss_mean:.4f}')
 
-        return loss
+        return current_loss_mean
 
     def batch_valid(self, model, batch_imgs):
         batch_imgs = batch_imgs.to(device=self.device, non_blocking=True)

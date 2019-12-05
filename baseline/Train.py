@@ -81,9 +81,9 @@ def train_fold(
             fold_logger.info('load model from {}'.format(pretrained_model_path))
 
     loss_args = train_config['CRITERION']
-    loss_fn = SegmentationLosses(weight=loss_args.weight, size_average=loss_args.size_average,
-                                 batch_average=loss_args.batch_average, ignore_index=loss_args.ignore_index,
-                                 cuda=loss_args.cuda).build_loss(mode=loss_args.mode)
+    loss_fn = SegmentationLosses(weight=loss_args['weight'], size_average=loss_args['size_average'],
+                                 batch_average=loss_args['batch_average'], ignore_index=loss_args['ignore_index'],
+                                 cuda=loss_args['cuda']).build_loss(mode=loss_args['mode'])
 
     if train_config['OPTIMIZER']['CLASS'] == 'RAdam':
         optimizer_class = getattr(radam, train_config['OPTIMIZER']['CLASS'])
