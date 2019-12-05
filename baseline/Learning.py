@@ -69,7 +69,7 @@ class Learning():
             if (idx + 1) % self.accumulation_step == 0:
                 self.optimizer.zero_grad()
 
-            image, target = batch['image'], batch['label'].cpu()
+            image, target = batch['image'], batch['label']
             loss = self.batch_train(model, image, target)
             current_loss_mean = (current_loss_mean * idx + loss.item()) / (idx + 1)
 
@@ -95,7 +95,7 @@ class Learning():
         tqdm_loader = tqdm(loader)
         current_loss_mean = 0.
         for idx, batch in enumerate(tqdm_loader):
-            image, target = batch['image'], batch['label']
+            image, target = batch['image'], batch['label'].cuda()
             with torch.no_grad():
                 pred = self.batch_valid(model, image)
             loss = self.loss_fn(pred, target)
@@ -191,6 +191,7 @@ class Learning():
                     save_image(pred, self.checkpoints_history_folder / f'{pred_idx}.tif')
 
     def run_train(self, model, train_dataloader, valid_dataloader):
+        pdb.set_trace()
         model.to(self.device)
         # model, self.optimizer = amp.initialize(model, self.optimizer, opt_level='O1')
         for self.epoch in range(self.n_epoches):

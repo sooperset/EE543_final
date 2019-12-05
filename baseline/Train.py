@@ -90,6 +90,9 @@ def train_fold(
     else:
         optimizer_class = getattr(torch.optim, train_config['OPTIMIZER']['CLASS'])
     optimizer = optimizer_class(model.parameters(), **train_config['OPTIMIZER']['ARGS'])
+    train_params = [{'params': model.get_1x_lr_params(), 'lr': 0.007},
+                    {'params': model.get_10x_lr_params(), 'lr': 0.07}]
+    optimizer = torch.optim.SGD(train_params, momentum=0.9, weight_decay=0.0005, nesterov=False)
 
     scheduler_class = getattr(torch.optim.lr_scheduler, train_config['SCHEDULER']['CLASS'])
     scheduler = scheduler_class(optimizer, **train_config['SCHEDULER']['ARGS'])
