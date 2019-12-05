@@ -8,6 +8,7 @@ from scripts.tb_helper import init_tb_logger
 from scripts.VOCDataset import VOCSegmentation
 from scripts.metric import Evaluator
 from scripts.seg_loss import get_loss
+from scripts.loss import SegmentationLosses
 from baseline.Learning import Learning
 import numpy as np
 from torch.utils.data import DataLoader, WeightedRandomSampler
@@ -79,10 +80,10 @@ def train_fold(
         if distrib_config['LOCAL_RANK'] == 0:
             fold_logger.info('load model from {}'.format(pretrained_model_path))
 
-    if 'ARGS' in train_config['CRITERION']:
-        loss_fn = get_loss(train_config['CRITERION']['NAME'], **train_config['CRITERION']['ARGS'])
-    else:
-        loss_fn = get_loss(train_config['CRITERION']['NAME'])
+    loss_args = train_config['CRITERION']
+    loss_fn = SegmentationLosses(weight=loss_args.weight, size_average=loss_args.size_average,
+                                 batch_average=loss_args.batch_average, ignore_index=loss_args.ignore_index,
+                                 cuda=loss_args.cuda).build_loss(mode=loss_args.mode)
 
     if train_config['OPTIMIZER']['CLASS'] == 'RAdam':
         optimizer_class = getattr(radam, train_config['OPTIMIZER']['CLASS'])

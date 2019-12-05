@@ -82,11 +82,12 @@ class Learning():
 
     def batch_train(self, model, batch_imgs, batch_labels):
         batch_imgs = batch_imgs.to(device=self.device, non_blocking=True)
-        batch_labels = batch_labels.to(device=self.device, non_blocking=True)
+        batch_labels = batch_labels.to(device=self.device, non_blocking=True, dtype=torch.long)
         batch_pred = model(batch_imgs)
         loss = self.loss_fn(batch_pred, batch_labels) / self.accumulation_step
 
         # loss.backward()
+        pdb.set_trace()
         with amp.scale_loss(loss, self.optimizer, loss_id=0) as scaled_loss:
             scaled_loss.backward()
         return loss
