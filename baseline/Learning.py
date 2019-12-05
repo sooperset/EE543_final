@@ -1,4 +1,5 @@
 from pathlib import Path
+import numpy as np
 import pandas as pd
 import torch
 from apex import amp
@@ -68,7 +69,8 @@ class Learning():
             if (idx + 1) % self.accumulation_step == 0:
                 self.optimizer.zero_grad()
 
-            loss = self.batch_train(model, batch[0], batch[1])
+            image, target = batch['image'], batch['label']
+            loss = self.batch_train(model, image, target)
             current_loss_mean = (current_loss_mean * idx + loss.item()) / (idx + 1)
 
             if (idx + 1) % self.accumulation_step == 0:
@@ -80,7 +82,7 @@ class Learning():
 
     def batch_train(self, model, batch_imgs, batch_labels):
         batch_imgs = batch_imgs.to(device=self.device, non_blocking=True)
-        batch_labels = batch_labels.to(device=self.device, non_blocking=True, dtype=torch.long)
+        batch_labels = batch_labels.to(device=self.device, non_blocking=True)
         batch_pred = model(batch_imgs)
         loss = self.loss_fn(batch_pred, batch_labels) / self.accumulation_step
 
@@ -91,20 +93,25 @@ class Learning():
 
     def valid_epoch(self, model, loader):
         tqdm_loader = tqdm(loader)
+        current_loss_mean = 0.
         for idx, batch in enumerate(tqdm_loader):
+            image, target = batch['image'], batch['label']
             with torch.no_grad():
-                batch_labels = batch[1].to(dtype=torch.long)
-                n, h, w = batch_labels.size()
-                batch_one_hot_labels = torch.zeros((n, 21, h, w), dtype=torch.long)
-                for i in range(batch_labels.size(0)):
-                    batch_one_hot_labels[i] = torch.nn.functional.one_hot(batch_labels[i], 21).permute(-1,0,1)
-                batch_pred = self.batch_valid(model, batch[0])
-                self.evaluator.add_batch(batch_one_hot_labels.numpy(), (batch_pred > 0.5).numpy())
+                pred = self.batch_valid(model, image)
+            loss = self.loss_fn(pred, target)
+            current_loss_mean = (current_loss_mean * idx + loss.item()) / (idx + 1)
+
+            pred = pred.data.cpu().numpy()
+            target = target.cpu().numpy()
+            pred = np.argmax(pred, axis=1)
+            self.evaluator.add_batch(target, pred)
+
+            tqdm_loader.set_description(f'loss: {current_loss_mean:.4f}')
 
     def batch_valid(self, model, batch_imgs):
         batch_imgs = batch_imgs.to(device=self.device, non_blocking=True)
         batch_pred = model(batch_imgs)
-        return batch_pred.cpu()
+        return batch_pred
 
     def process_summary(self):
         Acc = self.evaluator.Pixel_Accuracy()
