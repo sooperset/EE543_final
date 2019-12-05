@@ -68,13 +68,9 @@ class VOCSegmentation(Dataset):
 
         for split in self.split:
             if split == "train":
-                augmented = self.transform_tr(sample)
-                augmented['label'][augmented['label'] == 255] = 0
-                return augmented['image'], augmented['label']
+                return self.transform_tr(sample)
             elif split == 'val':
-                augmented = self.transform_val(sample)
-                augmented['label'][augmented['label'] == 255] = 0
-                return augmented['image'], augmented['label']
+                return self.transform_val(sample)
 
     def _make_img_gt_point_pair(self, index):
         _img = Image.open(self.images[index]).convert('RGB')
