@@ -46,11 +46,11 @@ class Learning():
         self.accumulation_step = accumulation_step
         self.early_stopping = early_stopping
         self.calculation_name = calculation_name
-        self.best_checkpoint_path = Path(
+        self.best_checkpoint_path1 = Path(
             best_checkpoint_folder,
             'model1_{}.pth'.format(self.calculation_name)
         )
-        self.best_checkpoint_path = Path(
+        self.best_checkpoint_path2 = Path(
             best_checkpoint_folder,
             'model2_{}.pth'.format(self.calculation_name)
         )
@@ -68,35 +68,68 @@ class Learning():
         self.checkpoints_topk = checkpoints_topk
         # empty_cuda_cache()
 
+    def find_disj(self, model1, model2, batch_imgs, prop):
+        n,c,h,w = batch_imgs.size()
+
+        model1.eval()
+        model2.eval()
+
+        with torch.no_grad():
+            pred1 = torch.nn.functional.softmax(model1(batch_imgs), dim=1).argmax(dim=1)
+            pred2 = torch.nn.functional.softmax(model1(batch_imgs), dim=1).argmax(dim=1)
+
+            disj = torch.where(pred1 != pred2,
+                               pred1 * pred2,
+                               torch.zeros_like(pred1))
+
+            k = int(n * h * w * prop)
+            thr = torch.topk(disj, k)[-1]
+
+            disj = disj[disj > thr]
+
+        model1.train()
+        model2.train()
+        return disj
+
+
     def train_epoch(self, model1, model2, loader):
         tqdm_loader = tqdm(loader)
-        current_loss_mean = 0.
+        current_loss1_mean = 0.
+        current_loss2_mean = 0.
         for idx, batch in enumerate(tqdm_loader):
-            if (idx + 1) % self.accumulation_step == 0:
-                self.optimizer1.zero_grad()
-                self.optimizer2.zero_grad()
-
             image, target = batch['image'], batch['label']
-            loss = self.batch_train(model1, image, target)
-            current_loss_mean = (current_loss_mean * idx + loss.item()) / (idx + 1)
+            loss1, loss2 = self.batch_train(model1, model2, image, target, idx)
+            current_loss1_mean = (current_loss1_mean * idx + loss1.item()) / (idx + 1)
+            current_loss2_mean = (current_loss2_mean * idx + loss2.item()) / (idx + 1)
 
-            if (idx + 1) % self.accumulation_step == 0:
-                self.optimizer.step()
-
-            tqdm_loader.set_description(f'loss: {current_loss_mean:.4f} lr: {self.optimizer.param_groups[0]["lr"]:.6f}')
+            tqdm_loader.set_description(f'loss: {current_loss1_mean:.4f} lr: {self.optimizer1.param_groups[0]["lr"]:.6f}')
+            tqdm_loader.set_description(f'loss: {current_loss2_mean:.4f} lr: {self.optimizer2.param_groups[0]["lr"]:.6f}')
         # empty_cuda_cache()
-        return current_loss_mean
+        return current_loss1_mean, current_loss2_mean
 
-    def batch_train(self, model, batch_imgs, batch_labels):
+    def batch_train(self, model1, model2, batch_imgs, batch_labels, idx):
         batch_imgs = batch_imgs.to(device=self.device)
         batch_labels = batch_labels.to(device=self.device)
-        batch_pred = model(batch_imgs)
-        loss = self.loss_fn(batch_pred, batch_labels) / self.accumulation_step
+        disj = self.find_disj(model1, model2, batch_imgs, 0.1)
 
-        loss.backward()
+        batch_pred1 = model1(batch_imgs)
+        batch_pred2 = model2(batch_imgs)
+        if (idx + 1) % self.accumulation_step == 0:
+            self.optimizer1.zero_grad()
+
+        loss1 = self.loss_fn(batch_pred1, batch_labels, disj) / self.accumulation_step
+        loss1.backward()
+
+        if (idx + 1) % self.accumulation_step == 0:
+            self.optimizer1.step()
+            self.optimizer2.zero_grad()
+        loss2 = self.loss_fn(batch_pred2, batch_labels, disj) / self.accumulation_step
+        loss2.backward()
+        if (idx + 1) % self.accumulation_step == 0:
+            self.optimizer2.step()
         # with amp.scale_loss(loss, self.optimizer, loss_id=0) as scaled_loss:
         #     scaled_loss.backward()
-        return loss
+        return loss1, loss2
 
     def valid_epoch(self, model, loader):
         tqdm_loader = tqdm(loader)
@@ -158,26 +191,27 @@ class Learning():
             state_dict = model.state_dict()
         return state_dict
 
-    def post_processing(self, score, model):
+    def post_processing(self, score, model1, model2):
         if score > self.best_score:
             self.best_score = score
             self.best_epoch = self.epoch
             if self.distrib_config['LOCAL_RANK'] == 0:
-                torch.save(self.get_state_dict(model), self.best_checkpoint_path)
+                torch.save(self.get_state_dict(model1), self.best_checkpoint_path1)
+                torch.save(self.get_state_dict(model2), self.best_checkpoint_path2)
                 self.logger.info('best model: {} epoch - {:.5}'.format(self.epoch, score))
 
-        if self.distrib_config['LOCAL_RANK'] == 0:
-            if self.score_heap[0][0] < score:
-                checkpoints_history_path = Path(
-                    self.checkpoints_history_folder,
-                    '{}_epoch{}.pth'.format(self.calculation_name, self.epoch)
-                )
-                torch.save(self.get_state_dict(model), checkpoints_history_path)
-                heapq.heappush(self.score_heap, (score, checkpoints_history_path))
-                if len(self.score_heap) > self.checkpoints_topk:
-                    _, removing_checkpoint_path = heapq.heappop(self.score_heap)
-                    removing_checkpoint_path.exists() and removing_checkpoint_path.unlink()
-                    self.logger.info('Removed checkpoint is {}'.format(removing_checkpoint_path))
+        # if self.distrib_config['LOCAL_RANK'] == 0:
+        #     if self.score_heap[0][0] < score:
+        #         checkpoints_history_path = Path(
+        #             self.checkpoints_history_folder,
+        #             '{}_epoch{}.pth'.format(self.calculation_name, self.epoch)
+        #         )
+        #         torch.save(self.get_state_dict(model), checkpoints_history_path)
+        #         heapq.heappush(self.score_heap, (score, checkpoints_history_path))
+        #         if len(self.score_heap) > self.checkpoints_topk:
+        #             _, removing_checkpoint_path = heapq.heappop(self.score_heap)
+        #             removing_checkpoint_path.exists() and removing_checkpoint_path.unlink()
+        #             self.logger.info('Removed checkpoint is {}'.format(removing_checkpoint_path))
 
         if self.scheduler.__class__.__name__ == 'ReduceLROnPlateau':
             self.scheduler.step(score)
@@ -195,18 +229,21 @@ class Learning():
                 self.evaluator.reset()
             model1.train()
             model2.train()
-            train_loss_mean = self.train_epoch(model1, model2, train_dataloader)
+            train_loss1_mean, train_loss2_mean = self.train_epoch(model1, model2, train_dataloader)
             if self.distrib_config['LOCAL_RANK'] == 0:
-                self.logger.info(f'Epoch {self.epoch}: \t Calculated train loss: {train_loss_mean:.5f}')
-                self.tb_logger.add_scalar('Train/Loss', train_loss_mean)
+                self.logger.info(f'Epoch {self.epoch}: \t Calculated train loss: {train_loss1_mean:.5f},'
+                                 f' {train_loss2_mean:.5f}')
+                self.tb_logger.add_scalar('Train/Loss1', train_loss1_mean)
+                self.tb_logger.add_scalar('Train/Loss2', train_loss2_mean)
 
             if self.distrib_config['LOCAL_RANK'] == 0:
                 self.logger.info(f'Epoch {self.epoch}: \t start validation....')
-            model.eval()
-            valid_loss = self.valid_epoch(model, valid_dataloader)
+            model1.eval()
+            model2.eval()
+            valid_loss = self.valid_epoch(model1, valid_dataloader)
             selected_score = self.process_summary(valid_loss)
 
-            self.post_processing(selected_score, model)
+            self.post_processing(selected_score, model1, model2)
 
             if self.epoch - self.best_epoch > self.early_stopping:
                 if self.distrib_config['LOCAL_RANK'] == 0:
@@ -216,6 +253,6 @@ class Learning():
         if self.distrib_config['LOCAL_RANK'] == 0:
             self.tb_logger.close()
 
-        self.inference(model, valid_dataloader)
+        # self.inference(model, valid_dataloader)
         empty_cuda_cache()
         return self.best_epoch, self.best_score

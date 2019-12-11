@@ -15,6 +15,8 @@ class SegmentationLosses(object):
             return self.CrossEntropyLoss
         elif mode == 'focal':
             return self.FocalLoss
+        elif mode == 'friend':
+            return self.FriendLoss
         else:
             raise NotImplementedError
 
@@ -44,6 +46,22 @@ class SegmentationLosses(object):
         if alpha is not None:
             logpt *= alpha
         loss = -((1 - pt) ** gamma) * logpt
+
+        if self.batch_average:
+            loss /= n
+
+        return loss
+
+    def FriendLoss(self, logit, target, disj, gamma=0):
+        n, c, h, w = logit.size()
+        criterion = nn.CrossEntropyLoss(weight=self.weight, ignore_index=self.ignore_index,
+                                        size_average=self.size_average)
+        if self.cuda:
+            criterion = criterion.cuda()
+
+        logpt = -criterion(logit, target.long())
+        weight = torch.where(disj > 0, -((1 - disj) ** gamma), -1 * torch.ones_like(logpt))
+        loss = weight * logpt
 
         if self.batch_average:
             loss /= n
