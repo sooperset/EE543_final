@@ -14,6 +14,7 @@ import torch
 import importlib
 from ast import literal_eval
 from apex.parallel import DistributedDataParallel, convert_syncbn_model
+import pdb
 
 sys.path.append('/workspace/lib/segmentation_models.pytorch')
 sys.path.append('/workspace/lib/pytorch-deeplab-xception')
@@ -90,11 +91,11 @@ def train_fold(
         optimizer_class = getattr(torch.optim, train_config['OPTIMIZER']['CLASS'])
 
     train_params1 = [{'params': model1.get_1x_lr_params(), 'lr': train_config['OPTIMIZER']['ARGS']['lr']},
-                    {'params': model1.get_10x_lr_params(), 'lr': train_config['OPTIMIZER']['ARGS']['lr'] * 10}]
+                     {'params': model1.get_10x_lr_params(), 'lr': train_config['OPTIMIZER']['ARGS']['lr'] * 10}]
     optimizer1 = optimizer_class(train_params1, **train_config['OPTIMIZER']['ARGS'])
 
     train_params2 = [{'params': model2.get_1x_lr_params(), 'lr': train_config['OPTIMIZER']['ARGS']['lr']},
-                    {'params': model2.get_10x_lr_params(), 'lr': train_config['OPTIMIZER']['ARGS']['lr'] * 10}]
+                     {'params': model2.get_10x_lr_params(), 'lr': train_config['OPTIMIZER']['ARGS']['lr'] * 10}]
     optimizer2 = optimizer_class(train_params2, **train_config['OPTIMIZER']['ARGS'])
 
     scheduler_class = getattr(torch.optim.lr_scheduler, train_config['SCHEDULER']['CLASS'])

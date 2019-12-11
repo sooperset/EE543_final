@@ -45,7 +45,7 @@ CRITERION:
   batch_average: True
   ignore_index: 255
   cuda: True
-  mode: ce
+  mode: friend
 #  ARGS:
 #    weight: [1, 10]
 
@@ -55,6 +55,7 @@ OPTIMIZER:
     momentum: 0.9
     weight_decay: 0.0005
     nesterov: False
+    lr: 0.007
 
 #SCHEDULER:
 #  CLASS: ReduceLROnPlateau
