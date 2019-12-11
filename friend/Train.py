@@ -4,18 +4,13 @@ import sys
 from pathlib import Path
 from scripts.utils import load_yaml, seed_everything, init_logger, WrappedModel, DistributedWeightedRandomSampler
 from scripts.tb_helper import init_tb_logger
-# from scripts.metric import apply_deep_thresholds, search_deep_thresholds
 from scripts.VOCDataset import VOCSegmentation
 from scripts.metric import Evaluator
-from scripts.seg_loss import get_loss
 from scripts.loss import SegmentationLosses
-from baseline.Learning import Learning
+from friend.Learning import Learning
 import numpy as np
 from torch.utils.data import DataLoader, WeightedRandomSampler
 import torch
-import torch.nn as nn
-import albumentations as albu
-import functools
 import importlib
 from ast import literal_eval
 from apex.parallel import DistributedDataParallel, convert_syncbn_model
@@ -24,14 +19,6 @@ sys.path.append('/workspace/lib/segmentation_models.pytorch')
 sys.path.append('/workspace/lib/pytorch-deeplab-xception')
 sys.path.append('/workspace/lib/utils')
 import radam
-
-class SingleFromMultipleLoadError(Exception):
-    def __str__(self):
-        return "SingleFromMultipleLoadError"
-
-class MultipleFromSingleLoadError(Exception):
-    def __str__(self):
-        return "MultipleFromSingleLoadError"
 
 def argparser():
     parser = argparse.ArgumentParser(description='VOC Segmentation')
@@ -63,22 +50,34 @@ def train_fold(
 
     device = train_config['DEVICE']
 
-    module = importlib.import_module(train_config['MODEL']['PY'])
-    model_function = getattr(module, train_config['MODEL']['CLASS'])
-    model = model_function(**train_config['MODEL']['ARGS'])
+    module = importlib.import_module(train_config['MODEL1']['PY'])
+    model_function = getattr(module, train_config['MODEL1']['CLASS'])
+    model1 = model_function(**train_config['MODEL1']['ARGS'])
+
+    module = importlib.import_module(train_config['MODEL2']['PY'])
+    model_function = getattr(module, train_config['MODEL2']['CLASS'])
+    model2 = model_function(**train_config['MODEL2']['ARGS'])
 
     if len(train_config['DEVICE_LIST']) > 1:
-        model.cuda()
-        model = convert_syncbn_model(model)
-        model = DistributedDataParallel(model, delay_allreduce=True)
+        model1.cuda()
+        model1 = convert_syncbn_model(model1)
+        model1 = DistributedDataParallel(model1, delay_allreduce=True)
 
-    pretrained_model_path = best_checkpoint_folder / f'{calculation_name}.pth'
-    if pretrained_model_path.is_file():
-        state_dict = torch.load(pretrained_model_path, map_location=lambda storage, loc: storage)
-        model.load_state_dict(state_dict)
+        model2.cuda()
+        model2 = convert_syncbn_model(model2)
+        model2 = DistributedDataParallel(model2, delay_allreduce=True)
+
+    pretrained_model1_path = best_checkpoint_folder / f'model1_{calculation_name}.pth'
+    pretrained_model2_path = best_checkpoint_folder / f'model2_{calculation_name}.pth'
+    if pretrained_model1_path.is_file():
+        state_dict1 = torch.load(pretrained_model1_path, map_location=lambda storage, loc: storage)
+        model1.load_state_dict(state_dict1)
+        state_dict2 = torch.load(pretrained_model2_path, map_location=lambda storage, loc: storage)
+        model2.load_state_dict(state_dict2)
 
         if distrib_config['LOCAL_RANK'] == 0:
-            fold_logger.info('load model from {}'.format(pretrained_model_path))
+            fold_logger.info('load model from {}'.format(pretrained_model1_path))
+            fold_logger.info('load model from {}'.format(pretrained_model2_path))
 
     loss_args = train_config['CRITERION']
     loss_fn = SegmentationLosses(weight=loss_args['weight'], size_average=loss_args['size_average'],
@@ -90,12 +89,16 @@ def train_fold(
     else:
         optimizer_class = getattr(torch.optim, train_config['OPTIMIZER']['CLASS'])
 
-    train_params = [{'params': model.get_1x_lr_params(), 'lr': train_config['OPTIMIZER']['ARGS']['lr']},
-                    {'params': model.get_10x_lr_params(), 'lr': train_config['OPTIMIZER']['ARGS']['lr'] * 10}]
-    optimizer = optimizer_class(train_params, **train_config['OPTIMIZER']['ARGS'])
+    train_params1 = [{'params': model1.get_1x_lr_params(), 'lr': train_config['OPTIMIZER']['ARGS']['lr']},
+                    {'params': model1.get_10x_lr_params(), 'lr': train_config['OPTIMIZER']['ARGS']['lr'] * 10}]
+    optimizer1 = optimizer_class(train_params1, **train_config['OPTIMIZER']['ARGS'])
+
+    train_params2 = [{'params': model2.get_1x_lr_params(), 'lr': train_config['OPTIMIZER']['ARGS']['lr']},
+                    {'params': model2.get_10x_lr_params(), 'lr': train_config['OPTIMIZER']['ARGS']['lr'] * 10}]
+    optimizer2 = optimizer_class(train_params2, **train_config['OPTIMIZER']['ARGS'])
 
     scheduler_class = getattr(torch.optim.lr_scheduler, train_config['SCHEDULER']['CLASS'])
-    scheduler = scheduler_class(optimizer, **train_config['SCHEDULER']['ARGS'])
+    scheduler = scheduler_class(optimizer1, **train_config['SCHEDULER']['ARGS'])
 
     n_epoches = train_config['EPOCHS']
     accumulation_step = train_config['ACCUMULATION_STEP']
@@ -107,7 +110,8 @@ def train_fold(
 
     best_epoch, best_score = Learning(
         distrib_config,
-        optimizer,
+        optimizer1,
+        optimizer2,
         loss_fn,
         evaluator,
         device,
@@ -121,7 +125,7 @@ def train_fold(
         checkpoints_history_folder,
         checkpoints_topk,
         calculation_name
-    ).run_train(model, train_dataloader, valid_dataloader)
+    ).run_train(model1, model2, train_dataloader, valid_dataloader)
 
     fold_logger.info(f'Best Epoch : {best_epoch}, Best Score : {best_score}')
 
