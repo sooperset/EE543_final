@@ -75,15 +75,17 @@ class Learning():
         model2.eval()
 
         with torch.no_grad():
-            pred1 = torch.nn.functional.softmax(model1(batch_imgs), dim=1).argmax(dim=1)
-            pred2 = torch.nn.functional.softmax(model1(batch_imgs), dim=1).argmax(dim=1)
+            pred1_pt = torch.nn.functional.softmax(model1(batch_imgs), dim=1)
+            pred2_pt = torch.nn.functional.softmax(model2(batch_imgs), dim=1)
+            pred1_ct = pred1_pt.argmax(dim=1)
+            pred2_ct = pred2_pt.argmax(dim=1)
 
-            disj = torch.where(pred1 != pred2,
-                               pred1 * pred2,
-                               torch.zeros_like(pred1))
+            disj = torch.where(torch.eq(pred1_ct, pred2_ct).unsqueeze(1).repeat(1, 21, 1, 1),
+                               pred1_pt * pred2_pt,
+                               torch.zeros_like(pred1_pt))
 
             k = int(n * h * w * prop)
-            thr = torch.topk(disj, k)[-1]
+            thr = torch.topk(disj, k)[0][-1]
 
             disj = disj[disj > thr]
 
