@@ -103,7 +103,7 @@ class Learning():
             current_loss2_mean = (current_loss2_mean * idx + loss2.item()) / (idx + 1)
 
             tqdm_loader.set_description(f'loss1: {current_loss1_mean:.4f} lr: {self.optimizer1.param_groups[0]["lr"]:.6f}'
-                                        f'loss2: {current_loss2_mean:.4f} lr: {self.optimizer2.param_groups[0]["lr"]:.6f}')
+                                        f'loss2: {current_loss2_mean:.4f}')
         # empty_cuda_cache()
         return current_loss1_mean, current_loss2_mean
 
