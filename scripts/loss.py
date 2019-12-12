@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import copy
 import pdb
 
 class SegmentationLosses(object):
@@ -59,7 +60,7 @@ class SegmentationLosses(object):
         batch_size, out_channels, H, W = logit.size()
 
         logp = F.log_softmax(logit, dim=1)
-        target_tmp = target
+        target_tmp = target.clone()
         target_tmp[target_tmp == 255] = 0
         logp = logp.gather(1, target_tmp.long().view(batch_size, 1, H, W))
 
