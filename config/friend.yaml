@@ -8,7 +8,7 @@ DIRECTORY:
 
 SEED: 2019
 DEVICE: cuda
-DEVICE_LIST: [0]
+#DEVICE_LIST: [0, 1]
 WORKERS: 10
 
 MODEL1:
@@ -45,6 +45,7 @@ CRITERION:
   batch_average: True
   ignore_index: 255
   mode: friend
+  cuda: True
 #  ARGS:
 #    weight: [1, 10]
 

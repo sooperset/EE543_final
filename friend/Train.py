@@ -30,7 +30,7 @@ def argparser():
 
 def train_fold(
     train_config, distrib_config, pipeline_name, log_dir, fold_id,
-    train_dataloader, valid_dataloader, evaluator):
+    train_dataloader, valid_dataloader, evaluator1, evaluator2):
 
     if distrib_config['LOCAL_RANK'] == 0:
         fold_logger = init_logger(log_dir, 'train_fold_{}.log'.format(fold_id))
@@ -49,7 +49,8 @@ def train_fold(
 
     calculation_name = '{}_fold{}'.format(pipeline_name, fold_id)
 
-    device = train_config['DEVICE']
+    device1 = train_config['DEVICE'] + ':0'
+    device2 = train_config['DEVICE'] + ':1'
 
     module = importlib.import_module(train_config['MODEL1']['PY'])
     model_function = getattr(module, train_config['MODEL1']['CLASS'])
@@ -58,15 +59,6 @@ def train_fold(
     module = importlib.import_module(train_config['MODEL2']['PY'])
     model_function = getattr(module, train_config['MODEL2']['CLASS'])
     model2 = model_function(**train_config['MODEL2']['ARGS'])
-
-    if len(train_config['DEVICE_LIST']) > 1:
-        model1.cuda()
-        model1 = convert_syncbn_model(model1)
-        model1 = DistributedDataParallel(model1, delay_allreduce=True)
-
-        model2.cuda()
-        model2 = convert_syncbn_model(model2)
-        model2 = DistributedDataParallel(model2, delay_allreduce=True)
 
     pretrained_model1_path = best_checkpoint_folder / f'model1_{calculation_name}.pth'
     pretrained_model2_path = best_checkpoint_folder / f'model2_{calculation_name}.pth'
@@ -114,8 +106,10 @@ def train_fold(
         optimizer1,
         optimizer2,
         loss_fn,
-        evaluator,
-        device,
+        evaluator1,
+        evaluator2,
+        device1,
+        device2,
         n_epoches,
         scheduler,
         accumulation_step,
@@ -153,20 +147,20 @@ if __name__ == '__main__':
     if distrib_config['LOCAL_RANK'] == 0:
         main_logger.info(train_config)
 
-    if "DEVICE_LIST" in train_config:
-        os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, train_config["DEVICE_LIST"]))
+    # if "DEVICE_LIST" in train_config:
+    #     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, train_config["DEVICE_LIST"]))
 
-    if len(train_config['DEVICE_LIST']) > 1:
-        distrib_config['DISTRIBUTED'] = True
-        torch.cuda.set_device(distrib_config['LOCAL_RANK'])
-        torch.distributed.init_process_group(backend='nccl',
-                                             init_method='env://')
-        distrib_config['WORLD_SIZE'] = torch.distributed.get_world_size()
-        train_config['OPTIMIZER']['ARGS']['lr'] = train_config['OPTIMIZER']['ARGS']['lr'] * float(
-            train_config['BATCH_SIZE'] * distrib_config['WORLD_SIZE']) / 256
-    else:
-        distrib_config['DISTRIBUTED'] = False
-        distrib_config['WORLD_SIZE'] = False
+    # if len(train_config['DEVICE_LIST']) > 1:
+    #     distrib_config['DISTRIBUTED'] = True
+    #     torch.cuda.set_device(distrib_config['LOCAL_RANK'])
+    #     torch.distributed.init_process_group(backend='nccl',
+    #                                          init_method='env://')
+    #     distrib_config['WORLD_SIZE'] = torch.distributed.get_world_size()
+    #     train_config['OPTIMIZER']['ARGS']['lr'] = train_config['OPTIMIZER']['ARGS']['lr'] * float(
+    #         train_config['BATCH_SIZE'] * distrib_config['WORLD_SIZE']) / 256
+    # else:
+    distrib_config['DISTRIBUTED'] = False
+    distrib_config['WORLD_SIZE'] = False
 
     pipeline_name = train_config['PIPELINE_NAME']
 
@@ -175,7 +169,8 @@ if __name__ == '__main__':
     n_folds = train_config['FOLD']['NUMBER']
 
     usefolds = map(str, train_config['FOLD']['USEFOLDS'])
-    evaluator = Evaluator(num_class=train_config['EVALUATION']['NUM_CLASSES'])
+    evaluator1 = Evaluator(num_class=train_config['EVALUATION']['NUM_CLASSES'])
+    evaluator2 = Evaluator(num_class=train_config['EVALUATION']['NUM_CLASSES'])
 
     for fold_id in usefolds:
         if distrib_config['LOCAL_RANK'] == 0:
@@ -184,35 +179,35 @@ if __name__ == '__main__':
         train_dataset = VOCSegmentation(data_dir, split='train')
         valid_dataset = VOCSegmentation(data_dir, split='val')
 
-        if len(train_config['DEVICE_LIST']) > 1:
-            if train_config['USE_SAMPLER']:
-                counts = np.unique(train_dataset.df.defects.values, return_counts=True)[1]
-                weights = np.sum(counts) / counts
-                weights = torch.DoubleTensor(weights)
-                train_sampler = DistributedWeightedRandomSampler(train_dataset, weights)
-                valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset)
-            else:
-                train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-                valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset)
-
-            train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, num_workers=num_workers,
-                                      shuffle=False, sampler=train_sampler, pin_memory=True)
-            valid_loader = DataLoader(dataset=valid_dataset, batch_size=1, num_workers=num_workers,
-                                      shuffle=False, sampler=valid_sampler, pin_memory=True)
+        # if len(train_config['DEVICE_LIST']) > 1:
+        #     if train_config['USE_SAMPLER']:
+        #         counts = np.unique(train_dataset.df.defects.values, return_counts=True)[1]
+        #         weights = np.sum(counts) / counts
+        #         weights = torch.DoubleTensor(weights)
+        #         train_sampler = DistributedWeightedRandomSampler(train_dataset, weights)
+        #         valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset)
+        #     else:
+        #         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        #         valid_sampler = torch.utils.data.distributed.DistributedSampler(valid_dataset)
+        #
+        #     train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, num_workers=num_workers,
+        #                               shuffle=False, sampler=train_sampler, pin_memory=True)
+        #     valid_loader = DataLoader(dataset=valid_dataset, batch_size=1, num_workers=num_workers,
+        #                               shuffle=False, sampler=valid_sampler, pin_memory=True)
+        # else:
+        if train_config['USE_SAMPLER']:
+            counts = np.unique(train_dataset.df.defects.values, return_counts=True)[1]
+            weights = np.sum(counts) / counts
+            samples_weights = torch.DoubleTensor([weights[t-1] for t in train_dataset.df.defects.values])
+            train_sampler = WeightedRandomSampler(weights, len(train_dataset))
         else:
-            if train_config['USE_SAMPLER']:
-                counts = np.unique(train_dataset.df.defects.values, return_counts=True)[1]
-                weights = np.sum(counts) / counts
-                samples_weights = torch.DoubleTensor([weights[t-1] for t in train_dataset.df.defects.values])
-                train_sampler = WeightedRandomSampler(weights, len(train_dataset))
-            else:
-                train_sampler = None
-            train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, num_workers=num_workers,
-                                      shuffle=(train_sampler is None), sampler=train_sampler, pin_memory=True)
-            valid_loader = DataLoader(dataset=valid_dataset, batch_size=batch_size, num_workers=num_workers,
-                                      shuffle=False, pin_memory=True)
+            train_sampler = None
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, num_workers=num_workers,
+                                  shuffle=(train_sampler is None), sampler=train_sampler, pin_memory=True)
+        valid_loader = DataLoader(dataset=valid_dataset, batch_size=batch_size, num_workers=num_workers,
+                                  shuffle=False, pin_memory=True)
 
         train_fold(
             train_config, distrib_config, pipeline_name, log_dir,
-            fold_id, train_loader, valid_loader, evaluator
+            fold_id, train_loader, valid_loader, evaluator1, evaluator2
         )
