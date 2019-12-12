@@ -44,7 +44,6 @@ CRITERION:
   size_average: True
   batch_average: True
   ignore_index: 255
-  cuda: True
   mode: friend
 #  ARGS:
 #    weight: [1, 10]

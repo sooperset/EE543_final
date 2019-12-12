@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import pdb
 
 class SegmentationLosses(object):
     def __init__(self, weight=None, size_average=True, batch_average=True, ignore_index=255, cuda=False):
@@ -52,21 +54,23 @@ class SegmentationLosses(object):
 
         return loss
 
-    def FriendLoss(self, logit, target, disj, gamma=0):
-        n, c, h, w = logit.size()
-        criterion = nn.CrossEntropyLoss(weight=self.weight, ignore_index=self.ignore_index,
-                                        size_average=self.size_average)
-        if self.cuda:
-            criterion = criterion.cuda()
+    def FriendLoss(self, logit, target, loge):
+        # pdb.set_trace()
+        batch_size, out_channels, H, W = logit.size()
 
-        logpt = -criterion(logit, target.long())
-        weight = torch.where(disj > 0, -((1 - disj) ** gamma), -1 * torch.ones_like(logpt))
-        loss = weight * logpt
+        logp = F.log_softmax(logit, dim=1)
+        target_tmp = target
+        target_tmp[target_tmp == 255] = 0
+        logp = logp.gather(1, target_tmp.long().view(batch_size, 1, H, W))
+
+        weighted_loss = torch.where(loge.bool(), logp, loge)
+        weighted_loss_ign = torch.where(target == 255, torch.zeros_like(weighted_loss), weighted_loss).view(batch_size, -1)
+        weighted_loss_ign = -weighted_loss_ign.mean()
 
         if self.batch_average:
-            loss /= n
+            weighted_loss_ign /= batch_size
 
-        return loss
+        return weighted_loss_ign
 
 
 if __name__ == "__main__":

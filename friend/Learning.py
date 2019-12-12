@@ -68,30 +68,23 @@ class Learning():
         self.checkpoints_topk = checkpoints_topk
         # empty_cuda_cache()
 
-    def find_disj(self, model1, model2, batch_imgs, prop):
-        n,c,h,w = batch_imgs.size()
-
-        model1.eval()
-        model2.eval()
+    def calc_loge(self, model1, model2, batch_imgs, batch_labels):
+        batch_size, out_channels, H, W = batch_imgs.size()
+        batch_labels = batch_labels.long()
 
         with torch.no_grad():
-            pred1_pt = torch.nn.functional.softmax(model1(batch_imgs), dim=1)
-            pred2_pt = torch.nn.functional.softmax(model2(batch_imgs), dim=1)
-            pred1_ct = pred1_pt.argmax(dim=1)
-            pred2_ct = pred2_pt.argmax(dim=1)
+            logits1 = torch.nn.functional.log_softmax(model1(batch_imgs), dim=1)
+            logits2 = torch.nn.functional.log_softmax(model2(batch_imgs), dim=1)
 
-            disj = torch.where(torch.eq(pred1_ct, pred2_ct).unsqueeze(1).repeat(1, 21, 1, 1),
-                               pred1_pt * pred2_pt,
-                               torch.zeros_like(pred1_pt))
+            logp1 = F.log_softmax(logits1, dim=1)
+            logp2 = F.log_softmax(logits2, dim=1)
 
-            k = int(n * h * w * prop)
-            thr = torch.topk(disj, k)[0][-1]
+            e = torch.eq(logits1.argmax(1), logits2.argmax(1)).unsqueeze(1)
+            batch_labels[batch_labels == 255] = 0
+            loge = torch.where(~e, ((logp1 + logp2) / 2).gather(1, batch_labels.view(batch_size, 1, H, W)),
+                               torch.zeros_like(e).float())
 
-            disj = disj[disj > thr]
-
-        model1.train()
-        model2.train()
-        return disj
+        return loge
 
 
     def train_epoch(self, model1, model2, loader):
@@ -112,20 +105,20 @@ class Learning():
     def batch_train(self, model1, model2, batch_imgs, batch_labels, idx):
         batch_imgs = batch_imgs.to(device=self.device)
         batch_labels = batch_labels.to(device=self.device)
-        disj = self.find_disj(model1, model2, batch_imgs, 0.1)
+        loge = self.calc_loge(model1, model2, batch_imgs, batch_labels)
 
         batch_pred1 = model1(batch_imgs)
         batch_pred2 = model2(batch_imgs)
         if (idx + 1) % self.accumulation_step == 0:
             self.optimizer1.zero_grad()
 
-        loss1 = self.loss_fn(batch_pred1, batch_labels, disj) / self.accumulation_step
+        loss1 = self.loss_fn(batch_pred1, batch_labels, loge) / self.accumulation_step
         loss1.backward()
 
         if (idx + 1) % self.accumulation_step == 0:
             self.optimizer1.step()
             self.optimizer2.zero_grad()
-        loss2 = self.loss_fn(batch_pred2, batch_labels, disj) / self.accumulation_step
+        loss2 = self.loss_fn(batch_pred2, batch_labels, loge) / self.accumulation_step
         loss2.backward()
         if (idx + 1) % self.accumulation_step == 0:
             self.optimizer2.step()
@@ -221,7 +214,7 @@ class Learning():
             self.scheduler.step()
 
     def run_train(self, model1, model2, train_dataloader, valid_dataloader):
-        pdb.set_trace()
+        # pdb.set_trace()
         model1.to(self.device)
         model2.to(self.device)
         # model, self.optimizer = amp.initialize(model, self.optimizer, opt_level='O1')
