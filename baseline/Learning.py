@@ -191,7 +191,7 @@ class Learning():
                     save_image(pred, self.checkpoints_history_folder / f'{pred_idx}.tif')
 
     def run_train(self, model, train_dataloader, valid_dataloader):
-        pdb.set_trace()
+        # pdb.set_trace()
         model.to(self.device)
         # model, self.optimizer = amp.initialize(model, self.optimizer, opt_level='O1')
         for self.epoch in range(self.n_epoches):

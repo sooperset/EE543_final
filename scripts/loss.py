@@ -65,13 +65,14 @@ class SegmentationLosses(object):
         logp = logp.gather(1, target_tmp.long().view(batch_size, 1, H, W))
 
         weighted_loss = torch.where(loge.bool(), logp, loge)
-        weighted_loss_ign = torch.where(target == 255, torch.zeros_like(weighted_loss), weighted_loss).view(batch_size, -1)
-        weighted_loss_ign = -weighted_loss_ign.mean()
+        weighted_loss =-weighted_loss.mean()
+        # weighted_loss_ign = torch.where(target == 255, torch.zeros_like(weighted_loss), weighted_loss).view(batch_size, -1)
+        # weighted_loss_ign = -weighted_loss_ign.mean()
 
         if self.batch_average:
-            weighted_loss_ign /= batch_size
+            weighted_loss /= batch_size
 
-        return weighted_loss_ign
+        return weighted_loss
 
 
 if __name__ == "__main__":

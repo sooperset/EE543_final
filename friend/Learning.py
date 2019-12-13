@@ -89,7 +89,7 @@ class Learning():
             loge = torch.where(~e, ((logp1 + logp2) / 2).gather(1, batch_labels.view(batch_size, 1, H, W)),
                                torch.zeros_like(e).float())
 
-        return loge
+        return loge.data
 
 
     def train_epoch(self, model1, model2, loader):
