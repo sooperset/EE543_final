@@ -1,0 +1,89 @@
+# main
+PIPELINE_NAME: DeepLab
+
+DIRECTORY:
+  ROOT_DIRECTORY: /workspace/logs/ee543/baseline
+  DATA_DIRECTORY: /workspace/dataset/VOCdevkit/VOC2012/
+  LOGGER_DIRECTORY: log/friend_label
+
+SEED: 2019
+DEVICE: cuda
+#DEVICE_LIST: [0, 1]
+WORKERS: 10
+
+MODEL1:
+  PY: modeling.deeplab
+  CLASS: DeepLab
+  ARGS:
+      num_classes: 21
+      backbone: resnet
+      output_stride: 16
+      sync_bn: False
+      freeze_bn: False
+    pretrain: /workspace/logs/ee543/baseline/log/baseline/checkpoints/DeepLab_fold0.pth
+
+MODEL2:
+  PY: modeling.deeplab
+  CLASS: DeepLab
+  ARGS:
+      num_classes: 21
+      backbone: drn
+      output_stride: 16
+      sync_bn: False
+      freeze_bn: False
+    pretrain: /workspace/logs/ee543/baseline/log/baseline-drn/checkpoints/DeepLab_fold0.pth
+
+FOLD:
+  NUMBER: 1
+  USEFOLDS: [0]
+
+# preprocessing
+USE_SAMPLER: False
+
+# training
+CRITERION:
+  weight:
+  size_average: True
+  batch_average: True
+  ignore_index: 255
+  mode: friend
+  cuda: True
+#  ARGS:
+#    weight: [1, 10]
+
+OPTIMIZER:
+  CLASS: SGD
+  ARGS:
+    momentum: 0.9
+    weight_decay: 0.0005
+    nesterov: False
+    lr: 0.03
+
+#SCHEDULER:
+#  CLASS: ReduceLROnPlateau
+#  ARGS:
+#    mode: max
+#    factor: 0.1
+#    patience: 5
+#    threshold: 0.0000001
+#    min_lr: 0.0000001
+SCHEDULER:
+  CLASS: CosineAnnealingLR
+  ARGS:
+    T_max: 8
+    eta_min: 0.0000001
+
+BATCH_SIZE: 6
+ACCUMULATION_STEP: 1
+EPOCHS: 100
+EARLY_STOPPING: 100
+
+# saving
+CHECKPOINTS:
+  FULL_FOLDER: checkpoints
+  BEST_FOLDER: checkpoints
+  TOPK: 3
+
+# validation
+EVALUATION:
+  NUM_CLASSES: 21
