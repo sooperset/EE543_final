@@ -4,7 +4,7 @@ PIPELINE_NAME: DeepLab
 DIRECTORY:
   ROOT_DIRECTORY: /workspace/logs/ee543/baseline
   DATA_DIRECTORY: /workspace/dataset/VOCdevkit/VOC2012/
-  LOGGER_DIRECTORY: log/friend_label
+  LOGGER_DIRECTORY: log/friend_label3
 
 SEED: 2019
 DEVICE: cuda

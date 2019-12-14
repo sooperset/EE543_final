@@ -74,7 +74,6 @@ class Learning():
 
 
     def correct_label(self, batch_pred1, batch_pred2, batch_labels, t_is=0.1):
-        batch_size, out_channels, H, W = batch_pred1.size()
         batch_labels = batch_labels.long()
 
         with torch.no_grad():
@@ -122,19 +121,19 @@ class Learning():
         t_is = 1.0 - (self.epoch / self.n_epoches)
         corrected_label = self.correct_label(batch_pred1, batch_pred2, batch_labels, t_is)
         batch_labels.detach().cpu()
+        loss1 = self.loss_fn(batch_pred1, corrected_label) / self.accumulation_step
+        corrected_label = corrected_label.to(self.device2)
+        loss2 = self.loss_fn(batch_pred2, corrected_label) / self.accumulation_step
 
         if (idx + 1) % self.accumulation_step == 0:
             self.optimizer1.zero_grad()
 
-        loss1 = self.loss_fn(batch_pred1, corrected_label) / self.accumulation_step
         loss1.backward()
 
         if (idx + 1) % self.accumulation_step == 0:
             self.optimizer1.step()
             self.optimizer2.zero_grad()
 
-        corrected_label = corrected_label.to(self.device2)
-        loss2 = self.loss_fn(batch_pred2, corrected_label) / self.accumulation_step
         loss2.backward()
         if (idx + 1) % self.accumulation_step == 0:
             self.optimizer2.step()
