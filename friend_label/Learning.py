@@ -62,7 +62,7 @@ class Learning():
         self.score_heap = [(0., Path('nothing'))]
         self.summary_file = Path(self.checkpoints_history_folder, 'summary.csv')
         if self.summary_file.is_file():
-            self.best_score = pd.read_csv(self.summary_file).MIoU.max()
+            self.best_score = pd.read_csv(self.summary_file).MIoU1.max()
             if self.distrib_config['LOCAL_RANK'] == 0:
                 logger.info('Pretrained best score is {:.5}'.format(self.best_score))
         else:
@@ -72,7 +72,8 @@ class Learning():
         self.checkpoints_topk = checkpoints_topk
         # empty_cuda_cache()
 
-    def correct_label(self, batch_pred1, batch_pred2, batch_labels):
+
+    def correct_label(self, batch_pred1, batch_pred2, batch_labels, t_is=0.1):
         batch_size, out_channels, H, W = batch_pred1.size()
         batch_labels = batch_labels.long()
 
@@ -82,11 +83,18 @@ class Learning():
             logp2 = logp2.to(self.device1)
 
             e = torch.eq(logp1.argmax(1), logp2.argmax(1))
-            e = torch.where(batch_labels == 255, e, torch.zeros_like(e).bool())
+            if t_is:
+                mean_logp = (logp1.max(1)[0] + logp2.max(1)[0]) / 2
+                t_mean = mean_logp[batch_labels == 255].mean()
+                t_max = mean_logp[batch_labels == 255].max()
+                rate = (t_max - t_mean)
+                t = t_mean + rate * t_is
 
-            corrected = torch.where(e, logp1.argmax(1), batch_labels)
-
+                corrected = torch.where((batch_labels == 255) & (mean_logp > t) & e, logp1.argmax(1), batch_labels)
+            else:
+                corrected = torch.where((batch_labels == 255) & e, logp1.argmax(1), batch_labels)
         return corrected.data
+        # return batch_labels
 
 
     def train_epoch(self, model1, model2, loader):
@@ -99,7 +107,7 @@ class Learning():
             current_loss1_mean = (current_loss1_mean * idx + loss1.item()) / (idx + 1)
             current_loss2_mean = (current_loss2_mean * idx + loss2.item()) / (idx + 1)
 
-            tqdm_loader.set_description(f'loss1: {current_loss1_mean:.4f} lr: {self.optimizer1.param_groups[0]["lr"]:.6f}'
+            tqdm_loader.set_description(f'loss1: {current_loss1_mean:.4f} lr: {self.optimizer1.param_groups[0]["lr"]:.6f} '
                                         f'loss2: {current_loss2_mean:.4f}')
         # empty_cuda_cache()
         return current_loss1_mean, current_loss2_mean
@@ -107,13 +115,12 @@ class Learning():
     def batch_train(self, model1, model2, batch_imgs, batch_labels, idx):
         batch_imgs = batch_imgs.to(device=self.device1)
         batch_labels = batch_labels.to(device=self.device1)
-        with torch.no_grad():
-            batch_pred1 = model1(batch_imgs)
+        batch_pred1 = model1(batch_imgs)
         batch_imgs = batch_imgs.to(device=self.device2)
-        with torch.no_grad():
-            batch_pred2 = model2(batch_imgs)
+        batch_pred2 = model2(batch_imgs)
 
-        corrected_label = self.correct_label(batch_pred1, batch_pred2, batch_labels)
+        t_is = 1.0 - (self.epoch / self.n_epoches)
+        corrected_label = self.correct_label(batch_pred1, batch_pred2, batch_labels, t_is)
         batch_labels.detach().cpu()
 
         if (idx + 1) % self.accumulation_step == 0:
@@ -142,14 +149,15 @@ class Learning():
             image, target = batch['image'], batch['label'].cuda()
             with torch.no_grad():
                 pred1, pred2 = self.batch_valid(model1, model2, image)
-            # loss = self.loss_fn(pred, target)
-            # current_loss_mean = (current_loss_mean * idx + loss.item()) / (idx + 1)
+                # loss = self.loss_fn(pred, target)
+                # current_loss_mean = (current_loss_mean * idx + loss.item()) / (idx + 1)
 
-            pred1 = pred1.data.cpu().numpy()
-            pred2 = pred2.data.cpu().numpy()
-            target = target.cpu().numpy()
-            pred1 = np.argmax(pred1, axis=1)
-            pred2 = np.argmax(pred2, axis=1)
+                pred1 = pred1.data.cpu().numpy()
+                pred2 = pred2.data.cpu().numpy()
+                target = target.cpu().numpy()
+                pred1 = np.argmax(pred1, axis=1)
+                pred2 = np.argmax(pred2, axis=1)
+
             self.evaluator1.add_batch(target, pred1)
             self.evaluator2.add_batch(target, pred2)
 
