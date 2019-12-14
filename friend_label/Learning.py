@@ -107,9 +107,11 @@ class Learning():
     def batch_train(self, model1, model2, batch_imgs, batch_labels, idx):
         batch_imgs = batch_imgs.to(device=self.device1)
         batch_labels = batch_labels.to(device=self.device1)
-        batch_pred1 = model1(batch_imgs)
+        with torch.no_grad():
+            batch_pred1 = model1(batch_imgs)
         batch_imgs = batch_imgs.to(device=self.device2)
-        batch_pred2 = model2(batch_imgs)
+        with torch.no_grad():
+            batch_pred2 = model2(batch_imgs)
 
         corrected_label = self.correct_label(batch_pred1, batch_pred2, batch_labels)
         batch_labels.detach().cpu()
