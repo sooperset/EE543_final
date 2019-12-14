@@ -50,7 +50,7 @@ def train_fold(
     calculation_name = '{}_fold{}'.format(pipeline_name, fold_id)
 
     device1 = train_config['DEVICE'] + ':0'
-    device2 = train_config['DEVICE'] + ':1'
+    device2 = train_config['DEVICE'] + ':0'
 
     module = importlib.import_module(train_config['MODEL1']['PY'])
     model_function = getattr(module, train_config['MODEL1']['CLASS'])
@@ -91,7 +91,8 @@ def train_fold(
     optimizer2 = optimizer_class(train_params2, **train_config['OPTIMIZER']['ARGS'])
 
     scheduler_class = getattr(torch.optim.lr_scheduler, train_config['SCHEDULER']['CLASS'])
-    scheduler = scheduler_class(optimizer1, **train_config['SCHEDULER']['ARGS'])
+    scheduler1 = scheduler_class(optimizer1, **train_config['SCHEDULER']['ARGS'])
+    scheduler2 = scheduler_class(optimizer2, **train_config['SCHEDULER']['ARGS'])
 
     n_epoches = train_config['EPOCHS']
     accumulation_step = train_config['ACCUMULATION_STEP']
@@ -111,7 +112,8 @@ def train_fold(
         device1,
         device2,
         n_epoches,
-        scheduler,
+        scheduler1,
+        scheduler2,
         accumulation_step,
         early_stopping,
         fold_logger,

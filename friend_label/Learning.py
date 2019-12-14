@@ -24,7 +24,8 @@ class Learning():
                  device1,
                  device2,
                  n_epoches,
-                 scheduler,
+                 scheduler1,
+                 scheduler2,
                  accumulation_step,
                  early_stopping,
                  logger,
@@ -46,7 +47,8 @@ class Learning():
         self.device2 = device2
         self.epoch = 0
         self.n_epoches = n_epoches
-        self.scheduler = scheduler
+        self.scheduler1 = scheduler1
+        self.scheduler2 = scheduler2
         self.accumulation_step = accumulation_step
         self.early_stopping = early_stopping
         self.calculation_name = calculation_name
@@ -235,10 +237,12 @@ class Learning():
         #             removing_checkpoint_path.exists() and removing_checkpoint_path.unlink()
         #             self.logger.info('Removed checkpoint is {}'.format(removing_checkpoint_path))
 
-        if self.scheduler.__class__.__name__ == 'ReduceLROnPlateau':
-            self.scheduler.step(score)
+        if self.scheduler1.__class__.__name__ == 'ReduceLROnPlateau':
+            self.scheduler1.step(score)
+            self.scheduler2.step(score)
         else:
-            self.scheduler.step()
+            self.scheduler1.step()
+            self.scheduler2.step()
 
     def run_train(self, model1, model2, train_dataloader, valid_dataloader):
         # pdb.set_trace()
