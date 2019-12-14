@@ -72,24 +72,21 @@ class Learning():
         self.checkpoints_topk = checkpoints_topk
         # empty_cuda_cache()
 
-    def calc_loge(self, batch_pred1, batch_pred2, batch_labels):
+    def correct_label(self, batch_pred1, batch_pred2, batch_labels):
         batch_size, out_channels, H, W = batch_pred1.size()
         batch_labels = batch_labels.long()
 
         with torch.no_grad():
-            logits1 = torch.nn.functional.log_softmax(batch_pred1, dim=1)
-            logits2 = torch.nn.functional.log_softmax(batch_pred2, dim=1)
-            logits2 = logits2.to(self.device1)
+            logp1 = F.log_softmax(batch_pred1, dim=1)
+            logp2 = F.log_softmax(batch_pred2, dim=1)
+            logp2 = logp2.to(self.device1)
 
-            logp1 = F.log_softmax(logits1, dim=1)
-            logp2 = F.log_softmax(logits2, dim=1)
+            e = torch.eq(logp1.argmax(1), logp2.argmax(1))
+            e = torch.where(batch_labels == 255, e, torch.zeros_like(e).bool())
 
-            e = torch.eq(logits1.argmax(1), logits2.argmax(1)).unsqueeze(1)
-            batch_labels[batch_labels == 255] = 0
-            loge = torch.where(~e, ((logp1 + logp2) / 2).gather(1, batch_labels.view(batch_size, 1, H, W)),
-                               torch.zeros_like(e).float())
+            corrected = torch.where(e, logp1.argmax(1), batch_labels)
 
-        return loge.data
+        return corrected.data
 
 
     def train_epoch(self, model1, model2, loader):
@@ -114,21 +111,21 @@ class Learning():
         batch_imgs = batch_imgs.to(device=self.device2)
         batch_pred2 = model2(batch_imgs)
 
-        loge = self.calc_loge(batch_pred1, batch_pred2, batch_labels)
+        corrected_label = self.correct_label(batch_pred1, batch_pred2, batch_labels)
+        batch_labels.detach().cpu()
 
         if (idx + 1) % self.accumulation_step == 0:
             self.optimizer1.zero_grad()
 
-        loss1 = self.loss_fn(batch_pred1, batch_labels, loge) / self.accumulation_step
+        loss1 = self.loss_fn(batch_pred1, corrected_label) / self.accumulation_step
         loss1.backward()
 
         if (idx + 1) % self.accumulation_step == 0:
             self.optimizer1.step()
             self.optimizer2.zero_grad()
 
-        loge = loge.to(self.device2)
-        batch_labels = batch_labels.to(self.device2)
-        loss2 = self.loss_fn(batch_pred2, batch_labels, loge) / self.accumulation_step
+        corrected_label = corrected_label.to(self.device2)
+        loss2 = self.loss_fn(batch_pred2, corrected_label) / self.accumulation_step
         loss2.backward()
         if (idx + 1) % self.accumulation_step == 0:
             self.optimizer2.step()

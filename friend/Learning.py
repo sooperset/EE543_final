@@ -77,14 +77,11 @@ class Learning():
         batch_labels = batch_labels.long()
 
         with torch.no_grad():
-            logits1 = torch.nn.functional.log_softmax(batch_pred1, dim=1)
-            logits2 = torch.nn.functional.log_softmax(batch_pred2, dim=1)
-            logits2 = logits2.to(self.device1)
+            logp1 = F.log_softmax(batch_pred1, dim=1)
+            logp2 = F.log_softmax(batch_pred2, dim=1)
+            logp2 = logp2.to(self.device1)
 
-            logp1 = F.log_softmax(logits1, dim=1)
-            logp2 = F.log_softmax(logits2, dim=1)
-
-            e = torch.eq(logits1.argmax(1), logits2.argmax(1)).unsqueeze(1)
+            e = torch.eq(logp1.argmax(1), logp2.argmax(1)).unsqueeze(1)
             batch_labels[batch_labels == 255] = 0
             loge = torch.where(~e, ((logp1 + logp2) / 2).gather(1, batch_labels.view(batch_size, 1, H, W)),
                                torch.zeros_like(e).float())

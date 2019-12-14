@@ -20,7 +20,7 @@ MODEL1:
       output_stride: 16
       sync_bn: False
       freeze_bn: False
-    pretrain: /workspace/logs/ee543/baseline/log/baseline/checkpoints/DeepLab_fold0.pth
+  pretrain: /workspace/logs/ee543/baseline/log/baseline/checkpoints/DeepLab_fold0.pth
 
 MODEL2:
   PY: modeling.deeplab
@@ -31,7 +31,7 @@ MODEL2:
       output_stride: 16
       sync_bn: False
       freeze_bn: False
-    pretrain: /workspace/logs/ee543/baseline/log/baseline-drn/checkpoints/DeepLab_fold0.pth
+  pretrain: /workspace/logs/ee543/baseline/log/baseline-drn/checkpoints/DeepLab_fold0.pth
 
 FOLD:
   NUMBER: 1
@@ -46,7 +46,7 @@ CRITERION:
   size_average: True
   batch_average: True
   ignore_index: 255
-  mode: friend
+  mode: ce
   cuda: True
 #  ARGS:
 #    weight: [1, 10]

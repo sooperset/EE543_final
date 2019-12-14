@@ -7,7 +7,7 @@ from scripts.tb_helper import init_tb_logger
 from scripts.VOCDataset import VOCSegmentation
 from scripts.metric import Evaluator
 from scripts.loss import SegmentationLosses
-from friend.Learning import Learning
+from friend_label.Learning import Learning
 import numpy as np
 from torch.utils.data import DataLoader, WeightedRandomSampler
 import torch
@@ -60,8 +60,8 @@ def train_fold(
     model_function = getattr(module, train_config['MODEL2']['CLASS'])
     model2 = model_function(**train_config['MODEL2']['ARGS'])
 
-    pretrained_model1_path = train_config['MODEL1']['pretrain']
-    pretrained_model2_path = train_config['MODEL2']['pretrain']
+    pretrained_model1_path = Path(train_config['MODEL1']['pretrain'])
+    pretrained_model2_path = Path(train_config['MODEL2']['pretrain'])
     if pretrained_model1_path.is_file():
         state_dict1 = torch.load(pretrained_model1_path, map_location=lambda storage, loc: storage)
         model1.load_state_dict(state_dict1)
