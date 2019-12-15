@@ -28,7 +28,7 @@ MODEL2:
   CLASS: DeepLab
   ARGS:
       num_classes: 21
-      backbone: xception
+      backbone: resnet
       output_stride: 16
       sync_bn: False
       freeze_bn: False
@@ -67,10 +67,10 @@ SCHEDULER:
     milestones: [10, 20, 40]
     gamma : 0.1
 
-BATCH_SIZE: 6
+BATCH_SIZE: 8
 ACCUMULATION_STEP: 3
-EPOCHS: 40
-EARLY_STOPPING: 40
+EPOCHS: 30
+EARLY_STOPPING: 30
 
 # saving
 CHECKPOINTS:
