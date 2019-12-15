@@ -4,7 +4,7 @@ PIPELINE_NAME: DeepLab
 DIRECTORY:
   ROOT_DIRECTORY: /workspace/logs/ee543/baseline
   DATA_DIRECTORY: /workspace/dataset/VOCdevkit/VOC2012/
-  LOGGER_DIRECTORY: log/baseline_friend
+  LOGGER_DIRECTORY: log/single_oneT
 
 SEED: 2019
 DEVICE: cuda
@@ -47,19 +47,19 @@ OPTIMIZER:
     nesterov: False
     lr: 0.03
 
-#SCHEDULER:
-#  CLASS: ReduceLROnPlateau
-#  ARGS:
-#    mode: max
-#    factor: 0.1
-#    patience: 5
-#    threshold: 0.0000001
-#    min_lr: 0.0000001
 SCHEDULER:
-  CLASS: MultiStepLR
+  CLASS: ReduceLROnPlateau
   ARGS:
-    milestones: [10, 20, 40]
-    gamma : 0.1
+    mode: max
+    factor: 0.1
+    patience: 5
+    threshold: 0.0000001
+    min_lr: 0.0000001
+#SCHEDULER:
+#  CLASS: MultiStepLR
+#  ARGS:
+#    milestones: [10, 20, 40]
+#    gamma : 0.1
 
 BATCH_SIZE: 8
 ACCUMULATION_STEP: 2
