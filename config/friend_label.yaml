@@ -28,7 +28,7 @@ MODEL2:
   CLASS: DeepLab
   ARGS:
       num_classes: 21
-      backbone: resnet
+      backbone: xception
       output_stride: 16
       sync_bn: False
       freeze_bn: False
@@ -59,32 +59,18 @@ OPTIMIZER:
     momentum: 0.9
     weight_decay: 0.0005
     nesterov: False
-    lr: 0.03
+    lr: 0.07
 
-#OPTIMIZER:
-#  CLASS: RAdam
-#  ARGS:
-#    lr: 0.03
-#    weight_decay: 0.0005
-
-#SCHEDULER:
-#  CLASS: ReduceLROnPlateau
-#  ARGS:
-#    mode: max
-#    factor: 0.1
-#    patience: 5
-#    threshold: 0.0000001
-#    min_lr: 0.0000001
 SCHEDULER:
-  CLASS: CosineAnnealingLR
+  CLASS: MultiStepLR
   ARGS:
-    T_max: 8
-    eta_min: 0.0000001
+    milestones: [10, 20, 40]
+    gamma : 0.1
 
-BATCH_SIZE: 8
-ACCUMULATION_STEP: 1
-EPOCHS: 100
-EARLY_STOPPING: 100
+BATCH_SIZE: 6
+ACCUMULATION_STEP: 3
+EPOCHS: 40
+EARLY_STOPPING: 40
 
 # saving
 CHECKPOINTS:

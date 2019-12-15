@@ -50,7 +50,7 @@ def train_fold(
     calculation_name = '{}_fold{}'.format(pipeline_name, fold_id)
 
     device1 = train_config['DEVICE'] + ':0'
-    device2 = train_config['DEVICE'] + ':0'
+    device2 = train_config['DEVICE'] + ':1'
 
     module = importlib.import_module(train_config['MODEL1']['PY'])
     model_function = getattr(module, train_config['MODEL1']['CLASS'])
