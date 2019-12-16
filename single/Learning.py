@@ -85,12 +85,15 @@ class Learning():
         batch_labels = batch_labels.to(device=self.device)
         batch_pred = model(batch_imgs)
 
-        # if self.epoch > 20:
-        t_is = 1.0 - (self.epoch / self.n_epoches)
-        corrected_label = self.correct_label(batch_pred, batch_labels, t_is)
-        loss = self.loss_fn(batch_pred, corrected_label) / self.accumulation_step
-        # else:
-        #     loss = self.loss_fn(batch_pred, batch_labels) / self.accumulation_step
+        if self.epoch < 40:
+            loss = self.loss_fn(batch_pred, batch_labels) / self.accumulation_step
+        elif 40 < self.epoch < 80:
+            t_is = 1.0 - (self.epoch / 80)
+            corrected_label = self.correct_label(batch_pred, batch_labels, t_is)
+            loss = self.loss_fn(batch_pred, corrected_label) / self.accumulation_step
+        else:
+            corrected_label = self.correct_label(batch_pred, batch_labels, t_is=0.0001)
+            loss = self.loss_fn(batch_pred, corrected_label) / self.accumulation_step
 
         loss.backward()
         # with amp.scale_loss(loss, self.optimizer, loss_id=0) as scaled_loss:
@@ -244,6 +247,6 @@ class Learning():
         if self.distrib_config['LOCAL_RANK'] == 0:
             self.tb_logger.close()
 
-        self.inference(model, valid_dataloader)
+        # self.inference(model, valid_dataloader)
         empty_cuda_cache()
         return self.best_epoch, self.best_score

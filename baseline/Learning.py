@@ -220,6 +220,6 @@ class Learning():
         if self.distrib_config['LOCAL_RANK'] == 0:
             self.tb_logger.close()
 
-        self.inference(model, valid_dataloader)
+        # self.inference(model, valid_dataloader)
         empty_cuda_cache()
         return self.best_epoch, self.best_score

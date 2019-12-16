@@ -4,7 +4,7 @@ PIPELINE_NAME: DeepLab
 DIRECTORY:
   ROOT_DIRECTORY: /workspace/logs/ee543/baseline
   DATA_DIRECTORY: /workspace/dataset/VOCdevkit/VOC2012/
-  LOGGER_DIRECTORY: log/baseline_friend2
+  LOGGER_DIRECTORY: log/baseline_friend2_stage2
 
 SEED: 2019
 DEVICE: cuda
@@ -59,7 +59,7 @@ SCHEDULER:
 
 BATCH_SIZE: 8
 ACCUMULATION_STEP: 2
-EPOCHS: 80
+EPOCHS: 200
 EARLY_STOPPING: 40
 
 # saving
