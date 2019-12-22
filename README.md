@@ -19,6 +19,12 @@
 ### PseudoCode
 ![psuedo](./images/pseudo%20code.png)
 
+### Result
+![Result](./images/Result.png)
+
+Blue: baseline (mIoU: 0.7302)  
+Orange: single proposed model (mIoU: 0.7442)
+
 ## Path modificiation is needed in 
 - config/single.yaml, config/baseline_friend2.sh
 - DATA_DIRECTORY for dataset path
